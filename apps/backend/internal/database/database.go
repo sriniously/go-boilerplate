@@ -54,17 +54,26 @@ func (mt *multiTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data p
 const DatabasePingTimeout = 10
 
 func New(cfg *config.Config, logger *zerolog.Logger, loggerService *loggerConfig.LoggerService) (*Database, error) {
-	hostPort := net.JoinHostPort(cfg.Database.Host, strconv.Itoa(cfg.Database.Port))
+	// hostPort := net.JoinHostPort(cfg.Database.Host, strconv.Itoa(cfg.Database.Port))
 
-	// URL-encode the password
-	encodedPassword := url.QueryEscape(cfg.Database.Password)
-	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=%s",
-		cfg.Database.User,
-		encodedPassword,
-		hostPort,
-		cfg.Database.Name,
-		cfg.Database.SSLMode,
-	)
+	// // URL-encode the password
+	// encodedPassword := url.QueryEscape(cfg.Database.Password)
+	// dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=%s",
+	// 	cfg.Database.User,
+	// 	encodedPassword,
+	// 	hostPort,
+	// 	cfg.Database.Name,
+	// 	cfg.Database.SSLMode,
+	// )
+	//The method above will work for mostt cases, but a case whereby the password has space e.g: "my password"
+	// QueryEscape will change it to "my+password", hence incorrect password
+	dsn := &url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(cfg.Database.User, cfg.Database.Password),
+		Host:     net.JoinHostPort(cfg.Database.Host, strconv.Itoa(cfg.Database.Port)),
+		Path:     cfg.Database.Name,
+		RawQuery: "sslmode=" + url.QueryEscape(cfg.Database.SSLMode),
+	}
 
 	pgxPoolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
